@@ -73,9 +73,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateParkingStatus() {
-        var parkingSlots = getParkingSlots();
-        String slots1 = "Available slots at PDC1: " + parkingSlots.first;
-        String slots2 = "Available slots at PDC2 : " + parkingSlots.second;
+        try {
+            getFreeParking();
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
+        }
+        var parkingSlots = freeParkings;
+        if (freeParkings == null || freeParkings.isEmpty()){
+            return;
+        }
+        String slots1 = "Available slots at PDC1: " + parkingSlots.get(0).count;
+        String slots2 = "Available slots at PDC2 : " + parkingSlots.get(1).count;
         parkingSlot1View.setText(slots1);
         parkingSlot2View.setText(slots2);
     }
@@ -117,7 +125,6 @@ public class MainActivity extends AppCompatActivity {
                         textView.setText("Latitude: " + latitude + "\t Longitude: " + longitude + "\t Speed: " + speed + " km/h");
                         try {
                             sendInfoToServer(latitude, longitude, speed);
-                            getFreeParking();
                         } catch (JSONException e) {
                             throw new RuntimeException(e);
                         }
@@ -142,7 +149,7 @@ public class MainActivity extends AppCompatActivity {
         String userId = sharedPreferences.getString("userId", "");
         if(userId.isEmpty()){
             SharedPreferences.Editor editor = sharedPreferences.edit();
-            editor.putString("userId", "Riva");
+            editor.putString("userId", "Shiran");
             editor.apply();
         }
         String welcomeText = "Welcome, " + userId;
@@ -172,7 +179,7 @@ public class MainActivity extends AppCompatActivity {
         super.onLocalesChanged(locales);
     }
 
-    private void sendInfoToServer() {
+
     private void sendInfoToServer(double latitude, double longitude, float speed) throws JSONException {
         RequestQueue queue = Volley.newRequestQueue(MainActivity.this);
         String url = "http://34.125.134.54:5001/api/location";
@@ -184,12 +191,9 @@ public class MainActivity extends AppCompatActivity {
         postData.put("longitude", longitude);
         postData.put("speed", speed);
         JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.POST, url, postData
-                , new Response.Listener<JSONObject>() {
-                    @Override
-                    public void onResponse(JSONObject response) {
-                        // Display the first 500 characters of the response string.
-                        //textView.setText("Response is: " + response);
-                    }
+                , response -> {
+                    // Display the first 500 characters of the response string.
+                    //textView.setText("Response is: " + response);
                 }
                 , new Response.ErrorListener() {
             @Override
@@ -210,24 +214,19 @@ public class MainActivity extends AppCompatActivity {
         String url = "http://34.125.134.54:5001/api/location/free_parking";
 // Request a string response from the provided URL.
         JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.GET, url, null
-                , new Response.Listener<JSONObject>() {
-            @Override
-            public void onResponse(JSONObject response) {
-                try {
-                    JSONArray array = response.getJSONArray("items");
-                    List<FreeParkings.FreeParking> list = new ArrayList<>();
-                    for (int i = 0; i < array.length(); i++) {
-                        list.add(new FreeParkings.FreeParking(array.getJSONObject(i).get("name").toString(), (int)(array.getJSONObject(i).get("count"))));
-                    }
-                    freeParkings = list;
+                , response -> {
+                    try {
+                        JSONArray array = response.getJSONArray("items");
+                        List<FreeParkings.FreeParking> list = new ArrayList<>();
+                        for (int i = 0; i < array.length(); i++) {
+                            list.add(new FreeParkings.FreeParking(array.getJSONObject(i).get("name").toString(), (int) (array.getJSONObject(i).get("count"))));
+                        }
+                        freeParkings = list;
 
-                } catch (JSONException e) {
-                    throw new RuntimeException(e);
+                    } catch (JSONException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
-                // Display the first 500 characters of the response string.
-                textView.setText("Response is: " + freeParkings.size() + " ");
-            }
-        }
                 , new Response.ErrorListener() {
             @Override
             public void onErrorResponse(VolleyError error) {
