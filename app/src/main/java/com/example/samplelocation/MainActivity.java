@@ -1,12 +1,17 @@
 package com.example.samplelocation;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.Settings;
+import android.util.Pair;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -14,6 +19,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.os.LocaleListCompat;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
@@ -26,7 +32,9 @@ import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 
+import java.util.Random;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -38,11 +46,30 @@ public class MainActivity extends AppCompatActivity {
     private LocationCallback locationCallback;
 
     private TextView textView;
+    private TextView parkingSlot1View;
+    private TextView parkingSlot2View;
+    private TextView welcomeView;
+    private ImageView parking1View;
+    private ImageView parking2View;
 
     @Override
     protected void onResume() {
+
         super.onResume();
         requestLocationPermissionAndFetchLocation();
+        updateParkingStatus();
+    }
+
+    private void updateParkingStatus() {
+        var parkingSlots = getParkingSlots();
+        String slots1 = "Available slots at PDC1: " + parkingSlots.first;
+        String slots2 = "Available slots at PDC2 : " + parkingSlots.second;
+        parkingSlot1View.setText(slots1);
+        parkingSlot2View.setText(slots2);
+    }
+
+    private Pair<Integer,Integer> getParkingSlots() {
+        return new Pair<>(new Random().nextInt(100),new Random().nextInt(100));
     }
 
 
@@ -56,8 +83,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         textView=findViewById(R.id.locationText);
+        initializeWelcomeView();
+        initializeAvailableParkingSlots();
+        startParkingSlotsPolling();
+
 
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -81,6 +111,48 @@ public class MainActivity extends AppCompatActivity {
         };
 
         requestLocationPermissionAndFetchLocation();
+    }
+
+    private void initializeAvailableParkingSlots() {
+        parkingSlot1View = findViewById(R.id.idParkingSlot1);
+        parkingSlot2View = findViewById(R.id.idParkingSlot2);
+    }
+
+    private void initializeWelcomeView() {
+        welcomeView = findViewById(R.id.idWelcomeUser);
+        initializeParkingImages();
+        SharedPreferences sharedPreferences = getSharedPreferences("ParkingId", Context.MODE_PRIVATE);
+        String userId = sharedPreferences.getString("userId", "");
+        if(userId.isEmpty()){
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putString("userId", "Riva");
+            editor.apply();
+        }
+        String welcomeText = "Welcome, " + userId;
+        welcomeView.setText(welcomeText);
+    }
+
+    private void initializeParkingImages() {
+        parking1View = findViewById(R.id.parkLot1View);
+        parking1View.setImageResource(R.drawable.parking1);
+        parking2View = findViewById(R.id.parkLot2View);
+        parking2View.setImageResource(R.drawable.parking2);
+    }
+
+    private void startParkingSlotsPolling() {
+        Handler handler =new Handler();
+        final Runnable r = new Runnable() {
+            public void run() {
+                handler.postDelayed(this, 2000);
+                updateParkingStatus();
+            }
+        };
+        handler.postDelayed(r, 0000);
+    }
+
+    @Override
+    protected void onLocalesChanged(@NonNull LocaleListCompat locales) {
+        super.onLocalesChanged(locales);
     }
 
     private void sendInfoToServer() {
@@ -123,11 +195,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startLocationUpdates() {
-        LocationRequest locationRequest = LocationRequest.create()
-                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
-                .setInterval(500)
-                .setFastestInterval(100);
-
+        LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY,500).build();
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
 
             return;
