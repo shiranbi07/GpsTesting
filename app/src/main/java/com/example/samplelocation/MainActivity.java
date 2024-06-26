@@ -16,15 +16,18 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.os.LocaleListCompat;
 
+import com.android.volley.AuthFailureError;
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -34,6 +37,14 @@ import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.Random;
 
 
@@ -51,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView welcomeView;
     private ImageView parking1View;
     private ImageView parking2View;
+    private List<FreeParkings.FreeParking> freeParkings;
 
     @Override
     protected void onResume() {
@@ -103,7 +115,12 @@ public class MainActivity extends AppCompatActivity {
                         double longitude = location.getLongitude();
                         float speed = ((location.getSpeed()*3600)/1000);
                         textView.setText("Latitude: " + latitude + "\t Longitude: " + longitude + "\t Speed: " + speed + " km/h");
-                        //sendInfoToServer();
+                        try {
+                            sendInfoToServer(latitude, longitude, speed);
+                            getFreeParking();
+                        } catch (JSONException e) {
+                            throw new RuntimeException(e);
+                        }
                         //showToast("Latitude: " + latitude + "\nLongitude: " + longitude);
                     }
                 }
@@ -156,15 +173,82 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void sendInfoToServer() {
+    private void sendInfoToServer(double latitude, double longitude, float speed) throws JSONException {
         RequestQueue queue = Volley.newRequestQueue(MainActivity.this);
-        String url = "http://172.16.243.10:5001/weatherforecast";
+        String url = "http://34.125.134.54:5001/api/location";
+// Request a string response from the provided URL.
+        JSONObject postData = new JSONObject();
+        String uid = UUID.randomUUID().toString();
+        postData.put("id", uid);
+        postData.put("latitude", latitude);
+        postData.put("longitude", longitude);
+        postData.put("speed", speed);
+        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.POST, url, postData
+                , new Response.Listener<JSONObject>() {
+                    @Override
+                    public void onResponse(JSONObject response) {
+                        // Display the first 500 characters of the response string.
+                        //textView.setText("Response is: " + response);
+                    }
+                }
+                , new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                textView.setText("That didn't work! error="+ error.toString());
+            }
+        });
+
+
+
+// Add the request to the RequestQueue.
+        queue.add(jsonObjectRequest);
+    }
+
+
+    private void getFreeParking() throws JSONException {
+        RequestQueue queue = Volley.newRequestQueue(MainActivity.this);
+        String url = "http://34.125.134.54:5001/api/location/free_parking";
+// Request a string response from the provided URL.
+        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.GET, url, null
+                , new Response.Listener<JSONObject>() {
+            @Override
+            public void onResponse(JSONObject response) {
+                try {
+                    JSONArray array = response.getJSONArray("items");
+                    List<FreeParkings.FreeParking> list = new ArrayList<>();
+                    for (int i = 0; i < array.length(); i++) {
+                        list.add(new FreeParkings.FreeParking(array.getJSONObject(i).get("name").toString(), (int)(array.getJSONObject(i).get("count"))));
+                    }
+                    freeParkings = list;
+
+                } catch (JSONException e) {
+                    throw new RuntimeException(e);
+                }
+                // Display the first 500 characters of the response string.
+                textView.setText("Response is: " + freeParkings.size() + " ");
+            }
+        }
+                , new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                textView.setText("That didn't work! error=" + error.toString());
+            }
+        });
+// Add the request to the RequestQueue.
+        queue.add(jsonObjectRequest);
+    }
+
+
+    private void sendInfoToServerWeatherTest(double latitude, double longitude, float speed) {
+        RequestQueue queue = Volley.newRequestQueue(MainActivity.this);
+        String url = "http://34.125.134.54:5001/WeatherForecast";
 // Request a string response from the provided URL.
         StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
                 new Response.Listener<String>() {
                     @Override
                     public void onResponse(String response) {
                         // Display the first 500 characters of the response string.
-                        textView.setText("Response is: " + response.substring(0,500));
+                        textView.setText("Response is: " + response);
                     }
                 }, new Response.ErrorListener() {
             @Override
