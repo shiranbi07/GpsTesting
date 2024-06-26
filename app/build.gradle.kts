@@ -43,5 +43,7 @@ dependencies {
     implementation ("com.google.android.gms:play-services-location:21.0.1")
 // https://mvnrepository.com/artifact/org.apache.httpcomponents/httpclient-android
     implementation("com.android.volley:volley:1.2.1")
+// https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-core
+    implementation("com.fasterxml.jackson.core:jackson-core:2.17.1")
 
 }
